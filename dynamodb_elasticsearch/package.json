@@ -1,0 +1,27 @@
+{
+  "name": "dynamodb_elasticsearch",
+  "version": "1.0.0",
+  "description": "DynamoDB updates trigger Elasticsearch updates",
+  "main": "index.js",
+  "scripts": {
+    "test": "python test.py"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ymaaloSBR/dynamodb_elasticsesarch.git"
+  },
+  "keywords": [
+    "python",
+    "aws",
+    "lambda",
+    "serverless"
+  ],
+  "author": "Stansberry Research",
+  "bugs": {
+    "url": "https://github.com/ymaaloSBR/dynamodb_elasticsesarch/issues"
+  },
+  "homepage": "https://github.com/ymaaloSBR/dynamodb_elasticsesarch#readme",
+  "dependencies": {
+    "serverless-python-requirements": "^2.5.0"
+  }
+}

@@ -1,0 +1,28 @@
+service: dynamodb_elasticsearch
+
+provider:
+  name: aws
+  runtime: python3.6
+  role: arn:aws:iam::063414442810:role/serverless-lambda-full
+  region: us-east-2
+
+
+package:
+  exclude:
+    - test.py
+
+plugins:
+  - serverless-python-requirements
+
+
+functions:
+  process:
+    handler: handler.process
+    events:
+      - stream:
+          type: dynamodb
+          arn:
+            Fn::GetAtt:
+              - articles
+              - StreamArn
+
