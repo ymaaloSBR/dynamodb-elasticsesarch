@@ -29,5 +29,5 @@ functions:
               - articles
               - StreamArn
     environment:
-      ES_ENDPOINT = ${self:custom.ES_ENDPOINT}
-      REGION = ${self:custom.REGION, self:provider.region}
+      ES_ENDPOINT: ${self:custom.ES_ENDPOINT}
+      REGION: ${self:custom.REGION, self:provider.region}
