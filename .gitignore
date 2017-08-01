@@ -20,5 +20,8 @@ wheels/
 # Serverless directories
 .serverless
 
-#Node modules
+# Node modules
 node_modules/
+
+# Serverless Envrionment files
+*.*.yml
