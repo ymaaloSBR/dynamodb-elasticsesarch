@@ -22,7 +22,9 @@
   },
   "homepage": "https://github.com/ymaaloSBR/dynamodb_elasticsesarch#readme",
   "dependencies": {
-    "serverless-crypt": "0.0.3",
     "serverless-python-requirements": "^2.5.0"
+  },
+  "devDependencies": {
+    "serverless-secrets-plugin": "0.0.1"
   }
 }
