@@ -19,6 +19,7 @@ wheels/
 
 # Serverless directories
 .serverless
+.requirements/
 
 # Node modules
 node_modules/
