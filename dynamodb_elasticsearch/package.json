@@ -10,12 +10,6 @@
     "type": "git",
     "url": "git+https://github.com/ymaaloSBR/dynamodb_elasticsesarch.git"
   },
-  "keywords": [
-    "python",
-    "aws",
-    "lambda",
-    "serverless"
-  ],
   "author": "Stansberry Research",
   "bugs": {
     "url": "https://github.com/ymaaloSBR/dynamodb_elasticsesarch/issues"
