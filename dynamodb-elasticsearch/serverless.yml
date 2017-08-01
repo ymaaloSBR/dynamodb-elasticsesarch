@@ -1,4 +1,4 @@
-service: dynamodb_elasticsearch
+service: dynamodb-elasticsearch
 
 provider:
   name: aws
