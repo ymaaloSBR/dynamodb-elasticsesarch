@@ -16,7 +16,7 @@ plugins:
   - serverless-python-requirements
   - serverless-secrets-plugin
 
-custom: ${file(secrets.${opt:stage, self:privoder.stage}.yml)}
+custom: ${file(secrets.${opt:stage, self:provider.stage}.yml)}
 
 functions:
   process:
