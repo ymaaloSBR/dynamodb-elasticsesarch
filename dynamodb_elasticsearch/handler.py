@@ -2,10 +2,8 @@ from __future__ import print_function
 
 import json
 import re
-import boto3
-from lib import env
+import os
 from elasticsearch import Elasticsearch, RequestsHttpConnection
-from requests_aws4auth import AWS4Auth
 
 
 # Process DynamoDB Stream records and insert the object in ElasticSearch
@@ -15,22 +13,9 @@ from requests_aws4auth import AWS4Auth
 # Properly unmarshal DynamoDB JSON types. Binary NOT tested.
 
 def lambda_handler(event, context):
-    session = boto3.session.Session()
-    credentials = session.get_credentials()
-
-    # Get proper credentials for ES auth
-    awsauth = AWS4Auth(credentials.access_key,
-                       credentials.secret_key,
-                       session.region_name, 'es',
-                       session_token=credentials.token)
-
     # Connect to ES
     es = Elasticsearch(
-        [env.ES_ENDPOINT],
-        http_auth=awsauth,
-        use_ssl=True,
-        verify_certs=True,
-        connection_class=RequestsHttpConnection
+        [os.environ['ES_ENDPOINT']],
     )
 
     print("Cluster info:")
