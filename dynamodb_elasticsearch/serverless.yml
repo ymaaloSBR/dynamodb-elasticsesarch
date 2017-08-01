@@ -5,6 +5,7 @@ provider:
   runtime: python3.6
   role: arn:aws:iam::063414442810:role/serverless-lambda-full
   region: us-east-2
+  stage: dev
 
 
 package:
@@ -13,7 +14,9 @@ package:
 
 plugins:
   - serverless-python-requirements
+  - serverless-secrets-plugin
 
+custom: ${file(secrets.${opt:stage, self:privoder.stage}.yml)}
 
 functions:
   process:
@@ -25,4 +28,6 @@ functions:
             Fn::GetAtt:
               - articles
               - StreamArn
-
+    environment:
+      ES_ENDPOINT = ${self:custom.ES_ENDPOINT}
+      REGION = ${self:custom.REGION, self:provider.region}
