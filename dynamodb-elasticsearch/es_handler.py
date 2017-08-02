@@ -12,7 +12,7 @@ from elasticsearch import Elasticsearch, RequestsHttpConnection
 # Use IAM Role for authentication
 # Properly unmarshal DynamoDB JSON types. Binary NOT tested.
 
-def lambda_handler(event, context):
+def process_stream(event, context):
     # Connect to ES
     es = Elasticsearch(
         [os.environ['ES_ENDPOINT']],

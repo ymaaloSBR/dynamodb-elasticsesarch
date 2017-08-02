@@ -4,7 +4,6 @@ provider:
   name: aws
   runtime: python3.6
   role: arn:aws:iam::063414442810:role/serverless-lambda-full
-  region: us-east-2
   stage: dev
 
 
@@ -20,7 +19,7 @@ custom: ${file(secrets.${opt:stage, self:provider.stage}.yml)}
 
 functions:
   process:
-    handler: handler.process
+    handler: es_handler.process_stream
     events:
       - stream:
           type: dynamodb
@@ -30,4 +29,4 @@ functions:
               - StreamArn
     environment:
       ES_ENDPOINT: ${self:custom.ES_ENDPOINT}
-      REGION: ${self:custom.REGION, self:provider.region}
+      REGION: ${self:custom.REGION}
