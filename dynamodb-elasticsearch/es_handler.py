@@ -3,7 +3,7 @@ from __future__ import print_function
 import json
 import re
 import os
-from elasticsearch import Elasticsearch, RequestsHttpConnection
+from elasticsearch import Elasticsearch
 
 
 # Process DynamoDB Stream records and insert the object in ElasticSearch
