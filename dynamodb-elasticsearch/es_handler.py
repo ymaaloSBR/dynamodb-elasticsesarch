@@ -43,15 +43,15 @@ def process_stream(event, context):
 
 # Process MODIFY events
 def modify_document(es, record):
-    table = getTable(record)
+    table = get_table(record)
     print("Dynamo Table: " + table)
 
-    docId = generateId(record)
+    doc_id = generate_id(record)
     print("KEY")
-    print(docId)
+    print(doc_id)
 
     # Unmarshal the DynamoDB JSON to a normal JSON
-    doc = json.dumps(unmarshalJson(record['dynamodb']['NewImage']))
+    doc = json.dumps(unmarshal_json(record['dynamodb']['NewImage']))
 
     print("Updated document:")
     print(doc)
@@ -59,23 +59,23 @@ def modify_document(es, record):
     # We reindex the whole document as ES accepts partial docs
     es.index(index=table,
              body=doc,
-             id=docId,
+             id=doc_id,
              doc_type=table,
              refresh=True)
 
-    print("Success - Updated index ID: " + docId)
+    print("Success - Updated index ID: " + doc_id)
 
 
 # Process REMOVE events
 def remove_document(es, record):
-    table = getTable(record)
+    table = get_table(record)
     print("Dynamo Table: " + table)
 
-    docId = generateId(record)
-    print("Deleting document ID: " + docId)
+    doc_id = generate_id(record)
+    print("Deleting document ID: " + doc_id)
 
     es.delete(index=table,
-              id=docId,
+              id=doc_id,
               doc_type=table,
               refresh=True)
 
@@ -84,11 +84,11 @@ def remove_document(es, record):
 
 # Process INSERT events
 def insert_document(es, record):
-    table = getTable(record)
+    table = get_table(record)
     print("Dynamo Table: " + table)
 
     # Create index if missing
-    if es.indices.exists(table) == False:
+    if not es.indices.exists(table):
         print("Create missing index: " + table)
 
         es.indices.create(table,
@@ -97,23 +97,23 @@ def insert_document(es, record):
         print("Index created: " + table)
 
     # Unmarshal the DynamoDB JSON to a normal JSON
-    doc = json.dumps(unmarshalJson(record['dynamodb']['NewImage']))
+    doc = json.dumps(unmarshal_json(record['dynamodb']['NewImage']))
 
     print("New document to Index:")
     print(doc)
 
-    newId = generateId(record)
+    new_id = generate_id(record)
     es.index(index=table,
              body=doc,
-             id=newId,
+             id=new_id,
              doc_type=table,
              refresh=True)
 
-    print("Success - New Index ID: " + newId)
+    print("Success - New Index ID: " + new_id)
 
 
 # Return the dynamoDB table that received the event. Lower case it
-def getTable(record):
+def get_table(record):
     p = re.compile('arn:aws:dynamodb:.*?:.*?:table/([0-9a-zA-Z_-]+)/.+')
     m = p.match(record['eventSourceARN'])
     if m is None:
@@ -122,58 +122,57 @@ def getTable(record):
 
 
 # Generate the ID for ES. Used for deleting or updating item later
-def generateId(record):
-    keys = unmarshalJson(record['dynamodb']['Keys'])
+def generate_id(record):
+    keys = unmarshal_json(record['dynamodb']['Keys'])
 
     # Concat HASH and RANGE key with | in between
-    newId = ""
+    new_id = ""
     i = 0
     for key, value in keys.items():
-        if (i > 0):
-            newId += "|"
-        newId += str(value)
+        if i > 0:
+            new_id += "|"
+        new_id += str(value)
         i += 1
 
-    return newId
+    return new_id
 
 
 # Unmarshal a JSON that is DynamoDB formatted
-def unmarshalJson(node):
-    data = {}
-    data["M"] = node
-    return unmarshalValue(data, True)
+def unmarshal_json(node):
+    data = {"M": node}
+    return unmarshal_value(data, True)
 
 
 # ForceNum will force float or Integer to
-def unmarshalValue(node, forceNum=False):
+def unmarshal_value(node, force_num=False):
     for key, value in node.items():
-        if (key == "NULL"):
+        if key == "NULL":
             return None
-        if (key == "S" or key == "BOOL"):
+        if key == "S" or key == "BOOL":
             return value
-        if (key == "N"):
-            if (forceNum):
+        if key == "N":
+            if force_num:
                 return int_or_float(value)
             return value
-        if (key == "M"):
+        if key == "M":
             data = {}
             for key1, value1 in value.items():
-                data[key1] = unmarshalValue(value1, True)
+                data[key1] = unmarshal_value(value1, True)
             return data
-        if (key == "BS" or key == "L"):
+        if key == "BS" or key == "L":
             data = []
             for item in value:
-                data.append(unmarshalValue(item))
+                data.append(unmarshal_value(item))
             return data
-        if (key == "SS"):
+        if key == "SS":
             data = []
             for item in value:
                 data.append(item)
             return data
-        if (key == "NS"):
+        if key == "NS":
             data = []
             for item in value:
-                if (forceNum):
+                if force_num:
                     data.append(int_or_float(item))
                 else:
                     data.append(item)
