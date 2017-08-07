@@ -22,7 +22,7 @@ wheels/
 .requirements/
 
 # Node modules
-node_modules/
+elasticsearch/node_modules/
 
 # Serverless Envrionment files
 *.*.yml
