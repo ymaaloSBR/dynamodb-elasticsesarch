@@ -18,7 +18,7 @@ plugins:
 custom: ${file(secrets.${opt:stage, self:provider.stage}.yml)}
 
 functions:
-  process:
+  es_process:
     handler: es_handler.process_stream
     events:
       - stream:
@@ -27,6 +27,12 @@ functions:
             Fn::GetAtt:
               - articles
               - StreamArn
+      - stream:
+          type: kinesis
+          arn:
+            Fn::GetAtt:
+              - articles
+              - Arn
     environment:
       ES_ENDPOINT: ${self:custom.ES_ENDPOINT}
       REGION: ${self:custom.REGION}
