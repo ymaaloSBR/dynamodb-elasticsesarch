@@ -1,4 +1,4 @@
-service: dynamodb-elasticsearch
+service: elasticsearch
 
 provider:
   name: aws
@@ -18,7 +18,7 @@ plugins:
 custom: ${file(secrets.${opt:stage, self:provider.stage}.yml)}
 
 functions:
-  es_process:
+  process:
     handler: es_handler.process_stream
     events:
       - stream:
