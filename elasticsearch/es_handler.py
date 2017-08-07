@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import json
+import base64
 import re
 import os
 from elasticsearch import Elasticsearch
@@ -11,6 +12,14 @@ from elasticsearch import Elasticsearch
 # Force index refresh upon all actions for close to realtime reindexing
 # Use IAM Role for authentication
 # Properly unmarshal DynamoDB JSON types. Binary NOT tested.
+
+
+def decode_record_data(record):
+    dec = ''
+    base64.decode(record['data'], dec)
+
+    return dec
+
 
 def process_stream(event, context):
     # Connect to ES
@@ -26,14 +35,15 @@ def process_stream(event, context):
 
         print("New Record to process:")
         print(json.dumps(record))
-
+        record_data = ""
+        base64.decode(record["data"], record_data)
         try:
 
-            if record['eventName'] == "INSERT":
+            if record['eventName'] == "INSERT" or record['eventName'] == "aws:kinesis:record":
                 insert_document(es, record)
-            elif record['eventName'] == "REMOVE":
+            elif record['eventName'] == "REMOVE": #|| record['eventName'] == "aws:kinesis:record"#:
                 remove_document(es, record)
-            elif record['eventName'] == "MODIFY":
+            elif record['eventName'] == "MODIFY": #|| record['eventName'] == "aws:kinesis:record"#:
                 modify_document(es, record)
 
         except Exception as e:
@@ -97,7 +107,12 @@ def insert_document(es, record):
         print("Index created: " + table)
 
     # Unmarshal the DynamoDB JSON to a normal JSON
-    doc = json.dumps(unmarshal_json(record['dynamodb']['NewImage']))
+    doc = ''
+    if record['eventName'] == "aws:kinesis:record":
+        record_data = decode_record_data(record)
+        doc = json.dumps(unmarshal_json(record_data['dynamodb']['NewImage']))
+    else:
+        doc = json.dumps(unmarshal_json(record['dynamodb']['NewImage']))
 
     print("New document to Index:")
     print(doc)
@@ -114,7 +129,7 @@ def insert_document(es, record):
 
 # Return the dynamoDB table that received the event. Lower case it
 def get_table(record):
-    p = re.compile('arn:aws:dynamodb:.*?:.*?:table/([0-9a-zA-Z_-]+)/.+')
+    p = re.compile('arn:aws:(?:dynamodb|kinesis):.*?:.*?:table/([0-9a-zA-Z_-]+)/.+')
     m = p.match(record['eventSourceARN'])
     if m is None:
         raise Exception("Table not found in SourceARN")
