@@ -13,26 +13,15 @@ package:
 
 plugins:
   - serverless-python-requirements
-  - serverless-secrets-plugin
 
-custom: ${file(secrets.${opt:stage, self:provider.stage}.yml)}
+custom: ${file(secrets.${self:provider.stage}.yml)}
 
 functions:
-  process:
+  es_process:
     handler: es_handler.process_stream
     events:
-      - stream:
-          type: dynamodb
-          arn:
-            Fn::GetAtt:
-              - articles
-              - StreamArn
-      - stream:
-          type: kinesis
-          arn:
-            Fn::GetAtt:
-              - articles
-              - Arn
+      - stream: arn:aws:dynamodb:us-east-1:063414442810:table/articles/stream/2017-07-16T20:55:00.978
+      - stream: arn:aws:kinesis:us-east-1:063414442810:stream/articlesls
     environment:
       ES_ENDPOINT: ${self:custom.ES_ENDPOINT}
       REGION: ${self:custom.REGION}
