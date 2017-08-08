@@ -27,6 +27,8 @@ while True:
         # Scan from where you stopped previously.
         response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
 
+    count = 0
+    limit = 3
     for i in response["Items"]:
         # Get a dict of primary key(s).
         ddb_keys = {k: i[k] for k in i if k in ddb_keys_name}
@@ -46,6 +48,9 @@ while True:
             Data=record,
             PartitionKey=str(i["wordpressId"]))
         print(res)
+        count += 1
+        if count == limit:
+            quit()
 
     # Stop the loop if no additional records are
     # available.
