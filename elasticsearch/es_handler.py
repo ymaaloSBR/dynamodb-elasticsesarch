@@ -35,8 +35,6 @@ def process_stream(event, context):
 
         print("New Record to process:")
         print(json.dumps(record))
-        record_data = ""
-        base64.decode(record["data"], record_data)
         try:
 
             if record['eventName'] == "INSERT" or record['eventName'] == "aws:kinesis:record":
