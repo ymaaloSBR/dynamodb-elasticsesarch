@@ -25,3 +25,5 @@ functions:
     environment:
       ES_ENDPOINT: ${self:custom.ES_ENDPOINT}
       REGION: ${self:custom.REGION}
+      AWS_ACCESS: ${self:custom.AWS_ACCESS_KEY_ID}
+      AWS_SECRET: ${self:custom.AWS_SECRET_ACCESS_KEY}
