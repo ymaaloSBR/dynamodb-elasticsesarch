@@ -1,13 +1,14 @@
 from __future__ import print_function
 
 import json
+import time
 import base64
 import re
 import logging
 import os
-from sys import stdout
+import decimal
+import boto3
 from elasticsearch import Elasticsearch
-
 
 # Process DynamoDB Stream records and insert the object in ElasticSearch
 # Use the Table name as index and doc_type name
@@ -21,12 +22,73 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
 
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, decimal.Decimal):
+            if o % 1 > 0:
+                return float(o)
+            else:
+                return int(o)
+        return super(DecimalEncoder, self).default(o)
+
+
 def decode_kinesis_data(record):
     logging.info("Decoding Kinesis Record...")
     dec = base64.b64decode(record['kinesis']['data']).decode("utf-8")
     logging.info("Kinesis Record Data Decoded:")
     logging.info(dec)
     return dec
+
+
+def get_epoch_from_dict(input_dict):
+    try:
+        time_string = next(iter(input_dict.values()))
+    except AttributeError as e:
+        return input_dict
+    pattern = '%Y-%m-%dT%H:%M:%S.000Z'
+    epoch = int(time.mktime(time.strptime(time_string, pattern)))
+    return epoch
+
+
+def update_dynamodb(record, es):
+    logging.info("Updating DynamoDB record with id " + str(record['id']) + ".")
+    doc_json = json.loads(record['doc'])
+    logging.info("Successfully converted the document from a string to a dictionary.")
+    dynamodb = boto3.resource('dynamodb',
+                              region_name=os.environ['REGION'],
+                              aws_access_key_id=os.environ['AWS_ACCESS'],
+                              aws_secret_access_key=os.environ['AWS_SECRET'])
+    logging.info("Successfully connected to DynamoDB service.")
+    table = dynamodb.Table(record['table'])
+    logging.info("Sucessfully retrieved DynamoDB table: " + record['table'])
+
+    created_at_value = get_epoch_from_dict(doc_json['createdAt'])
+    modified_at_value = get_epoch_from_dict(doc_json['modifiedAt'])
+    oid_value = next(iter(doc_json['_id'].values()))
+    logging.info("Updating 'createdAt' value from map to  : " + str(created_at_value))
+    logging.info("Updating 'modifiedAt' value from map to : " + str(modified_at_value))
+    logging.info("Updating 'oid' value from map to : " + str(oid_value))
+    try:
+        response = table.update_item(
+            Key={
+                'wordpressId': record['id']
+            },
+            UpdateExpression="set createdAt=:c, modifiedAt=:m, oid=:o remove #id",
+            ExpressionAttributeValues={
+                ':c': created_at_value,
+                ':m': modified_at_value,
+                ':o': oid_value
+            },
+            ExpressionAttributeNames={
+                '#id': '_id'
+            },
+            ReturnValues="UPDATED_NEW"
+        )
+    except Exception as e:
+        logging.exception("Error in updating DynamoDB record")
+        return
+
+    logging.info("Dynamo record updated: " + json.dumps(response, indent=2, cls=DecimalEncoder))
 
 
 def process_stream(event, context):
@@ -125,11 +187,16 @@ def insert_document(es, record):
 
     new_id = generate_id(record)
     logging.info("Indexing into Elasticsearch...")
-    es.index(index=table,
-             body=doc,
-             id=new_id,
-             doc_type=table,
-             refresh=True)
+    try:
+        es.index(index=table,
+                 body=doc,
+                 id=new_id,
+                 doc_type=table,
+                 refresh=True)
+    except Exception as e:
+        logging.exception("Dynamo Record has an unsupported character in the key.")
+        update_dynamodb({'doc': doc, 'id': int(new_id), 'table': table}, es)
+        return
 
     logging.info("Success - New Index ID: " + new_id)
 
