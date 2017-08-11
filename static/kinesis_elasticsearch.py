@@ -1,5 +1,6 @@
 import json
 import boto3
+from elasticsearch import Elasticsearch
 import boto3.dynamodb.types
 
 # Load the service resources in the desired region.
@@ -19,6 +20,9 @@ ddb_keys_name = [a['AttributeName'] for a in table.attribute_definitions]
 # Scan operations are limited to 1 MB at a time.
 # Iterate until all records have been scanned.
 response = None
+es = Elasticsearch(
+        ['13.58.174.196:9200'],
+    )
 while True:
     if not response:
         # Scan from the start.
@@ -27,8 +31,6 @@ while True:
         # Scan from where you stopped previously.
         response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
 
-    count = 0
-    limit = 3
     for i in response["Items"]:
         # Get a dict of primary key(s).
         ddb_keys = {k: i[k] for k in i if k in ddb_keys_name}
@@ -42,15 +44,13 @@ while True:
         record = {"Keys": ddb_keys, "NewImage": ddb_data, "SourceTable": ddb_table_name}
         # Convert the record to JSON.
         record = json.dumps(record)
-        # Push the record to Amazon Kinesis.
-        res = kinesis.put_record(
-            StreamName=ks_stream_name,
-            Data=record,
-            PartitionKey=str(i["wordpressId"]))
-        print(res)
-        count += 1
-        if count == limit:
-            quit()
+        if not es.exists(index='articles', doc_type='articles', id=str(json.loads(record)['Keys']['wordpressId']['N'])):
+            # Push the record to Amazon Kinesis.
+            res = kinesis.put_record(
+                StreamName=ks_stream_name,
+                Data=record,
+                PartitionKey=str(i["wordpressId"]))
+            print(res)
 
     # Stop the loop if no additional records are
     # available.
