@@ -1,14 +1,17 @@
 from __future__ import print_function
 
-import json
-import time
 import base64
-import re
+import decimal
+import json
 import logging
 import os
-import decimal
+import re
+import time
+
 import boto3
 from elasticsearch import Elasticsearch
+
+from lib.index import get_index_settings
 
 # Process DynamoDB Stream records and insert the object in ElasticSearch
 # Use the Table name as index and doc_type name
@@ -46,11 +49,16 @@ def get_epoch_from_dict(input_dict):
     except AttributeError as e:
         return input_dict
     pattern = '%Y-%m-%dT%H:%M:%S.000Z'
-    epoch = int(time.mktime(time.strptime(time_string, pattern)))
+    try:
+        epoch = int(time.mktime(time.strptime(time_string, pattern)))
+    except ValueError as e:
+        logging.error("Format error in the date.")
+        time_string = time_string[1:]
+        epoch = int(time.mktime(time.strptime(time_string, pattern)))
     return epoch
 
 
-def update_dynamodb(record, es):
+def update_dynamodb(record):
     logging.info("Updating DynamoDB record with id " + str(record['id']) + ".")
     doc_json = json.loads(record['doc'])
     logging.info("Successfully converted the document from a string to a dictionary.")
@@ -60,25 +68,36 @@ def update_dynamodb(record, es):
                               aws_secret_access_key=os.environ['AWS_SECRET'])
     logging.info("Successfully connected to DynamoDB service.")
     table = dynamodb.Table(record['table'])
-    logging.info("Sucessfully retrieved DynamoDB table: " + record['table'])
+    logging.info("Successfully retrieved DynamoDB table: " + record['table'])
 
+    logging.info("Converting the createdAt value: " + doc_json['createdAt'])
     created_at_value = get_epoch_from_dict(doc_json['createdAt'])
+    logging.info("Converting the modifedAt value: " + doc_json['modifedAt'])
     modified_at_value = get_epoch_from_dict(doc_json['modifiedAt'])
-    oid_value = next(iter(doc_json['_id'].values()))
+    expression_attribute_values = {':c': created_at_value,
+                                   ':m': modified_at_value, }
+    update_expression = "remove #id set createdAt=:c, modifiedAt=:m"
+    if '_id' in doc_json:
+        oid_value = next(iter(doc_json['_id'].values()))
+        logging.info("Updating 'oid' value from map to : " + str(oid_value))
+        expression_attribute_values[':o'] = oid_value
+        update_expression += ", oid=:o"
+
+    if not doc_json['defaultPublication']:
+        logging.error("Updating defaultPublication from boolean to empty Map")
+        expression_attribute_values[':p'] = {}
+        update_expression += ", defaultPublication=:p"
+
     logging.info("Updating 'createdAt' value from map to  : " + str(created_at_value))
     logging.info("Updating 'modifiedAt' value from map to : " + str(modified_at_value))
-    logging.info("Updating 'oid' value from map to : " + str(oid_value))
+
     try:
         response = table.update_item(
             Key={
                 'wordpressId': record['id']
             },
-            UpdateExpression="set createdAt=:c, modifiedAt=:m, oid=:o remove #id",
-            ExpressionAttributeValues={
-                ':c': created_at_value,
-                ':m': modified_at_value,
-                ':o': oid_value
-            },
+            UpdateExpression=update_expression,
+            ExpressionAttributeValues=expression_attribute_values,
             ExpressionAttributeNames={
                 '#id': '_id'
             },
@@ -170,7 +189,7 @@ def insert_document(es, record):
         logging.info("Create missing index: " + table)
 
         es.indices.create(table,
-                          body='{"settings": { "index.mapping.coerce": true } }')
+                          body=get_index_settings())
 
         logging.info("Index created: " + table)
 
@@ -194,8 +213,8 @@ def insert_document(es, record):
                  doc_type=table,
                  refresh=True)
     except Exception as e:
-        logging.exception("Dynamo Record has an unsupported character in the key.")
-        update_dynamodb({'doc': doc, 'id': int(new_id), 'table': table}, es)
+        logging.exception("Dynamo Record with id " + new_id + " has an error")
+        update_dynamodb({'doc': doc, 'id': int(new_id), 'table': table})
         return
 
     logging.info("Success - New Index ID: " + new_id)
