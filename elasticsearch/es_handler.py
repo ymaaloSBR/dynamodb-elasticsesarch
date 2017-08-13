@@ -11,7 +11,7 @@ import time
 import boto3
 from elasticsearch import Elasticsearch
 
-from lib.index import get_index_settings  # ignore import error, this deploys correctly.
+from helper.index import get_index_settings  # ignore import error, this deploys correctly.
 
 # Process DynamoDB Stream records and insert the object in ElasticSearch
 # Use the Table name as index and doc_type name
