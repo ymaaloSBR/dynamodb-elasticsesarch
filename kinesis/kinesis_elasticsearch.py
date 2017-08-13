@@ -1,7 +1,6 @@
 import json
-import boto3
-from elasticsearch import Elasticsearch
 import boto3.dynamodb.types
+from elasticsearch import Elasticsearch
 
 # Load the service resources in the desired region.
 # Note: AWS credentials should be passed as environment variables
