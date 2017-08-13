@@ -11,7 +11,7 @@ import time
 import boto3
 from elasticsearch import Elasticsearch
 
-from lib.index import get_index_settings
+from lib.index import get_index_settings  # ignore import error, this deploys correctly.
 
 # Process DynamoDB Stream records and insert the object in ElasticSearch
 # Use the Table name as index and doc_type name
@@ -70,9 +70,9 @@ def update_dynamodb(record):
     table = dynamodb.Table(record['table'])
     logging.info("Successfully retrieved DynamoDB table: " + record['table'])
 
-    logging.info("Converting the createdAt value: " + doc_json['createdAt'])
+    logging.info("Converting the createdAt value: " + json.dumps(doc_json['createdAt']))
     created_at_value = get_epoch_from_dict(doc_json['createdAt'])
-    logging.info("Converting the modifedAt value: " + doc_json['modifedAt'])
+    logging.info("Converting the modifedAt value: " + json.dumps(doc_json['modifiedAt']))
     modified_at_value = get_epoch_from_dict(doc_json['modifiedAt'])
     expression_attribute_values = {':c': created_at_value,
                                    ':m': modified_at_value, }
