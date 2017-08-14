@@ -92,9 +92,7 @@ def update_dynamodb(record):
     logging.info("Updating 'modifiedAt' value from map to : " + str(modified_at_value))
 
     key = {'wordpressId': record['id']}
-    expression_attribute_names = {
-                '#id': '_id'
-            }
+    expression_attribute_names = {'#id': '_id'}
     try:
         response = table.update_item(
             Key=key,
