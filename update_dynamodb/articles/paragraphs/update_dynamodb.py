@@ -3,7 +3,6 @@ import logging
 import json
 import re
 
-
 FORMAT = '%(levelname)s - %(message)s'
 logging.basicConfig(format=FORMAT)
 logger = logging.getLogger()
@@ -23,15 +22,16 @@ def get_paragraphs(article):
     if '\n' in paragraphs:
         paragraphs.remove('\n')
     result = []
-    tickers = []
-    if 'tickers' in article:
-        tickers = article['tickers']
+    tickers = article['tickers']
     for p in paragraphs:
         matches = [ticker for ticker in tickers if ticker in p]
-        paragraph = {'tickers': matches, 'contentText': p}
-        result.append(paragraph)
-    logging.info("Creating parapgrahs: " + " ".join(str(x) for x in result))
+        if matches:
+            paragraph = {'tickers': matches, 'contentText': p}
+            result.append(paragraph)
+    logging.info(
+        "Creating parapgrahs for item with ID " + str(article['wordpressId']) + ": " + " ".join(str(x) for x in result))
     return result
+
 
 limit = -1
 count = 0
@@ -45,7 +45,7 @@ while True:
 
     for item in response["Items"]:
         logging.info("Updating paragraphs attribute for item with ID: " + str(item['wordpressId']))
-        if 'contentText' in item:
+        if {"contentText", "tickers"} <= set(item):
             expression_attribute_values = {':p': get_paragraphs(item)}
             update_response = table.update_item(Key={'wordpressId': item['wordpressId']},
                                                 UpdateExpression=update_expression,
