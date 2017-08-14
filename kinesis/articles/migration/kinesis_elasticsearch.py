@@ -1,6 +1,13 @@
 import json
 import boto3.dynamodb.types
+import logging
 from elasticsearch import Elasticsearch
+
+# setup logging
+FORMAT = '%(levelname)s - %(message)s'
+logging.basicConfig(format=FORMAT)
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
 
 # Load the service resources in the desired region.
 # Note: AWS credentials should be passed as environment variables
@@ -43,13 +50,15 @@ while True:
         record = {"Keys": ddb_keys, "NewImage": ddb_data, "SourceTable": ddb_table_name}
         # Convert the record to JSON.
         record = json.dumps(record)
+        logging.info("Record being pushed to kinesis: " + record)
         if not es.exists(index='articles', doc_type='articles', id=str(json.loads(record)['Keys']['wordpressId']['N'])):
+            logging.info("Record being pushed to kinesis: " + record)
             # Push the record to Amazon Kinesis.
             res = kinesis.put_record(
                 StreamName=ks_stream_name,
                 Data=record,
                 PartitionKey=str(i["wordpressId"]))
-            print(res)
+            logging.info("Response from pushing the record to Kinesis: " + res)
 
     # Stop the loop if no additional records are
     # available.
