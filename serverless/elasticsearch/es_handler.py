@@ -5,18 +5,18 @@ import decimal
 import json
 import logging
 import os
-import re
 import time
 
 import boto3
 from elasticsearch import Elasticsearch
 
-from helper.index import get_index_settings  # ignore import error, this deploys correctly.
+# ignore import error, this deploys correctly.
+from helper.index import get_index_settings
+from helper.dynamodb_elasticsearch_conversion import get_table, generate_id, unmarshal_json
 
-# Process DynamoDB Stream records and insert the object in ElasticSearch
+# Process DynamoDB/Kinesis Stream records and insert the object in ElasticSearch
 # Use the Table name as index and doc_type name
 # Force index refresh upon all actions for close to realtime reindexing
-# Use IAM Role for authentication
 # Properly unmarshal DynamoDB JSON types. Binary NOT tested.
 
 FORMAT = '%(levelname)s - %(message)s'
@@ -91,16 +91,16 @@ def update_dynamodb(record):
     logging.info("Updating 'createdAt' value from map to  : " + str(created_at_value))
     logging.info("Updating 'modifiedAt' value from map to : " + str(modified_at_value))
 
+    key = {'wordpressId': record['id']}
+    expression_attribute_names = {
+                '#id': '_id'
+            }
     try:
         response = table.update_item(
-            Key={
-                'wordpressId': record['id']
-            },
+            Key=key,
             UpdateExpression=update_expression,
             ExpressionAttributeValues=expression_attribute_values,
-            ExpressionAttributeNames={
-                '#id': '_id'
-            },
+            ExpressionAttributeNames=expression_attribute_names,
             ReturnValues="UPDATED_NEW"
         )
     except Exception as e:
@@ -119,13 +119,13 @@ def process_stream(event, context):
     logging.info("Cluster info:")
     logging.info(es.info())
 
-    # Loop over the DynamoDB Stream records
+    # Loop over the DynamoDB/Kinesis Stream records
     for record in event['Records']:
 
         logging.info("New Record to process:")
         logging.info(json.dumps(record))
         try:
-
+            # Determine the event type being processed
             if record['eventName'] == "INSERT" or record['eventName'] == "aws:kinesis:record":
                 insert_document(es, record)
             elif record['eventName'] == "REMOVE":
@@ -176,7 +176,7 @@ def remove_document(es, record):
               doc_type=table,
               refresh=True)
 
-    logging.info("Successly removed")
+    logging.info("Successfully removed")
 
 
 # Process INSERT events
@@ -204,6 +204,7 @@ def insert_document(es, record):
     logging.info("New document to Index:")
     logging.info(doc)
 
+    # Generate the id that will be used to stored in Elasticsearch
     new_id = generate_id(record)
     logging.info("Indexing into Elasticsearch...")
     try:
@@ -220,81 +221,4 @@ def insert_document(es, record):
     logging.info("Success - New Index ID: " + new_id)
 
 
-# Return the dynamoDB table that received the event. Lower case it
-def get_table(record):
-    p = re.compile('arn:aws:(?:dynamodb|kinesis):.*?:(?:table|stream)/([\w-]+)(?:.)*')
-    m = p.match(record['eventSourceARN'])
-    if m is None:
-        raise Exception("Table not found in SourceARN")
-    return m.group(1).lower()
 
-
-# Generate the ID for ES. Used for deleting or updating item later
-def generate_id(record):
-    logging.info("Generating ID")
-    if 'dynamodb' in record:
-        keys = unmarshal_json(record['dynamodb']['Keys'])
-    else:
-        keys = unmarshal_json(record['Keys'])
-    logging.info("Keys in record: " + json.dumps(keys))
-    # Concat HASH and RANGE key with | in between
-    new_id = ""
-    i = 0
-    for key, value in keys.items():
-        if i > 0:
-            new_id += "|"
-        new_id += str(value)
-        i += 1
-
-    return new_id
-
-
-# Unmarshal a JSON that is DynamoDB formatted
-def unmarshal_json(node):
-    logging.info("Unmarshalling record...")
-    data = {"M": node}
-    return unmarshal_value(data, True)
-
-
-# ForceNum will force float or Integer to
-def unmarshal_value(node, force_num=False):
-    for key, value in node.items():
-        if key == "NULL":
-            return None
-        if key == "S" or key == "BOOL":
-            return value
-        if key == "N":
-            if force_num:
-                return int_or_float(value)
-            return value
-        if key == "M":
-            data = {}
-            for key1, value1 in value.items():
-                data[key1] = unmarshal_value(value1, True)
-            return data
-        if key == "BS" or key == "L":
-            data = []
-            for item in value:
-                data.append(unmarshal_value(item))
-            return data
-        if key == "SS":
-            data = []
-            for item in value:
-                data.append(item)
-            return data
-        if key == "NS":
-            data = []
-            for item in value:
-                if force_num:
-                    data.append(int_or_float(item))
-                else:
-                    data.append(item)
-            return data
-
-
-# Detect number type and return the correct one
-def int_or_float(s):
-    try:
-        return int(s)
-    except ValueError:
-        return float(s)
