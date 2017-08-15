@@ -2,6 +2,7 @@ import re
 import logging
 import json
 
+
 # Return the dynamoDB table that received the event. Lower case it
 def get_table(record):
     p = re.compile('arn:aws:(?:dynamodb|kinesis):.*?:(?:table|stream)/([\w-]+)(?:.)*')
@@ -81,3 +82,37 @@ def int_or_float(s):
         return int(s)
     except ValueError:
         return float(s)
+
+
+def get_paragraphs(doc):
+    # Convert to JSON
+    article = json.loads(doc)
+    # Check if contentText and tickers are fields in the article, if not return the article as is.
+    if {"contentText", "tickers"} <= set(article) and not article['tickers']:
+        # Split contentText into paragraphs using the regex tokens below
+        paragraphs = re.split(r"(?:\s{4}|\n\n|\n\s\n)", article['contentText'])
+        # Remove empty entries from the paragraphs
+        paragraphs = list(filter(None, paragraphs))
+        # Remove invalid entries from the paragraphs e.g '\n'
+        remove_invalid_entries(paragraphs)
+        result = []
+        tickers = article['tickers']
+        # Iterate through the paragraphs and determine which tickers appear in a paragraph. If none appear, discard the
+        # paragraph.
+        for p in paragraphs:
+            matches = [ticker for ticker in tickers if ticker in p]
+            if matches:
+                paragraph = {'tickers': matches, 'contentText': p}
+                result.append(paragraph)
+                logging.info(
+                    "Creating parapgrahs for item with ID {0}: {1}".format(str(article['wordpressId']),
+                                                                           " ".join(str(x) for x in result)))
+                article['paragraphs'] = result
+
+    logging.info("No paragraphs created for article with ID: " + str(article['wordpressId']))
+    return json.dumps(article)
+
+
+def remove_invalid_entries(items):
+    if '\n' in items:
+        items.remove('\n')

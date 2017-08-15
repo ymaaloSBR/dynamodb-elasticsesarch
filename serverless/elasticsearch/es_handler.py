@@ -12,7 +12,7 @@ from elasticsearch import Elasticsearch
 
 # ignore import error, this deploys correctly.
 from helper.index import get_index_settings
-from helper.dynamodb_elasticsearch_conversion import get_table, generate_id, unmarshal_json
+from helper.dynamodb_elasticsearch_conversion import get_table, generate_id, unmarshal_json, get_paragraphs
 
 # Process DynamoDB/Kinesis Stream records and insert the object in ElasticSearch
 # Use the Table name as index and doc_type name
@@ -108,6 +108,7 @@ def update_dynamodb(record):
     logging.info("Dynamo record updated: " + json.dumps(response, indent=2, cls=DecimalEncoder))
 
 
+# Entry point, handles the input event from Dynamo/Kinesis
 def process_stream(event, context):
     # Connect to ES
     es = Elasticsearch(
@@ -198,6 +199,9 @@ def insert_document(es, record):
         doc = json.dumps(unmarshal_json(record['NewImage']))
     else:
         doc = json.dumps(unmarshal_json(record['dynamodb']['NewImage']))
+
+    # Add paragraphs attribute
+    doc = get_paragraphs(doc)
 
     logging.info("New document to Index:")
     logging.info(doc)

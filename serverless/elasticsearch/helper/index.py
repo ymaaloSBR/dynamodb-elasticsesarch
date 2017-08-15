@@ -115,6 +115,28 @@ def get_index_settings():
                         "order": {
                             "type": "long"
                         },
+                        "paragraphs": {
+                            "properties": {
+                                "contentText": {
+                                    "type": "text",
+                                    "fields": {
+                                        "keyword": {
+                                            "type": "keyword",
+                                            "ignore_above": 256
+                                        }
+                                    }
+                                },
+                                "tickers": {
+                                    "type": "text",
+                                    "fields": {
+                                        "keyword": {
+                                            "type": "keyword",
+                                            "ignore_above": 256
+                                        }
+                                    }
+                                }
+                            }
+                        },
                         "pdfOnly": {
                             "type": "boolean"
                         },
@@ -205,4 +227,5 @@ def get_index_settings():
                         }
                     }
                 }
-            }}
+            }
+            }
