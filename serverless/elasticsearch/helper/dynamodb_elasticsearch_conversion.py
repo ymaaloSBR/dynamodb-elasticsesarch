@@ -87,11 +87,22 @@ def int_or_float(s):
 def get_paragraphs(doc):
     # Convert to JSON
     article = json.loads(doc)
-    # Check if contentText and tickers are fields in the article, if not return the article as is.
-    if {"contentText", "tickers"} <= set(article) and not article['tickers']:
-        # Split contentText into paragraphs using the regex tokens below
-        paragraphs = re.split(r"(?:\s{4}|\n\n|\n\s\n)", article['contentText'])
+    # Check if content and tickers are fields in the article, if not return the article as is.
+    if {"content", "tickers"} <= set(article) and not article['tickers']:
+        return generate_paragraphs(article)
+    else:
+        logging.info("Generating paragraphs for special case")
+
+    logging.info("No paragraphs created for article with ID  " + str(article['wordpressId']))
+    return json.dumps(article)
+
+
+def generate_paragraphs(article):
+    # Split content into paragraphs using the regex tokens below
+        paragraphs = re.split("(<p.*?>.*?</p>)", article['content'], flags=re.DOTALL)
+        logging.info("Preliminary paragraphs generated: " + ",".join(paragraphs))
         # Remove empty entries from the paragraphs
+        logging.info("Removing empty entry from paragraphs")
         paragraphs = list(filter(None, paragraphs))
         # Remove invalid entries from the paragraphs e.g '\n'
         remove_invalid_entries(paragraphs)
@@ -102,17 +113,21 @@ def get_paragraphs(doc):
         for p in paragraphs:
             matches = [ticker for ticker in tickers if ticker in p]
             if matches:
+                logging.info("Matching tickers found in a paragraph: " + ",".join(matches))
                 paragraph = {'tickers': matches, 'contentText': p}
                 result.append(paragraph)
-                logging.info(
-                    "Creating parapgrahs for item with ID {0}: {1}".format(str(article['wordpressId']),
-                                                                           " ".join(str(x) for x in result)))
-                article['paragraphs'] = result
 
-    logging.info("No paragraphs created for article with ID: " + str(article['wordpressId']))
-    return json.dumps(article)
+        if result:
+            logging.info(
+                "Creating paragraphs for item with ID {0}: {1}".format(str(article['wordpressId']),
+                                                                       " ".join(str(x) for x in result)))
+            article['paragraphs'] = result
+            return json.dumps(article)
+        logging.info("No paragraphs created for item with ID " + str(article['wordpressId']))
+        return json.dumps(article)
 
 
 def remove_invalid_entries(items):
+    logging.info("Removing invalid entries from paragraphs.")
     if '\n' in items:
         items.remove('\n')
