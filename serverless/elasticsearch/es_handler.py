@@ -4,7 +4,7 @@ import base64
 import json
 import logging
 import os
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, ElasticsearchException
 
 # ignore import errors, this deploys correctly.
 from helper.update_dynamodb import update_dynamodb
@@ -115,13 +115,13 @@ def insert_document(es, record):
         logging.info("Index created: " + table)
 
     # Unmarshal the DynamoDB JSON to a normal JSON
-    doc = ''
     if record['eventName'] == "aws:kinesis:record":
         record = json.loads(decode_kinesis_data(record))
         doc = json.dumps(unmarshal_json(record['NewImage']))
     else:
         doc = json.dumps(unmarshal_json(record['dynamodb']['NewImage']))
 
+    logging.info("Document unmarshalled: " + doc)
     # Add paragraphs attribute
     doc = get_paragraphs(doc)
 
@@ -137,7 +137,7 @@ def insert_document(es, record):
                  id=new_id,
                  doc_type=table,
                  refresh=True)
-    except Exception as e:
+    except ElasticsearchException:
         logging.exception("Dynamo Record with id " + new_id + " has an error")
         update_dynamodb({'doc': doc, 'id': int(new_id), 'table': table})
         return

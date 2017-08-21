@@ -87,8 +87,8 @@ def int_or_float(s):
 def get_paragraphs(doc):
     # Convert to JSON
     article = json.loads(doc)
-    # Check if content and tickers are fields in the article, if not return the article as is.
-    if {"content", "tickers"} <= set(article) and not article['tickers']:
+    # Check if content and tickers are fields in the article and tickers isn't empty. If not return the article as is.
+    if {"content", "tickers"} <= set(article) and article['tickers']:
         return generate_paragraphs(article)
     else:
         logging.info("Generating paragraphs for special case")
@@ -98,33 +98,35 @@ def get_paragraphs(doc):
 
 
 def generate_paragraphs(article):
+    logging.info("Generating paragraphs for article: " + json.dumps(article))
     # Split content into paragraphs using the regex tokens below
-        paragraphs = re.split("(<p.*?>.*?</p>)", article['content'], flags=re.DOTALL)
-        logging.info("Preliminary paragraphs generated: " + ",".join(paragraphs))
-        # Remove empty entries from the paragraphs
-        logging.info("Removing empty entry from paragraphs")
-        paragraphs = list(filter(None, paragraphs))
-        # Remove invalid entries from the paragraphs e.g '\n'
-        remove_invalid_entries(paragraphs)
-        result = []
-        tickers = article['tickers']
-        # Iterate through the paragraphs and determine which tickers appear in a paragraph. If none appear, discard the
-        # paragraph.
-        for p in paragraphs:
-            matches = [ticker for ticker in tickers if ticker in p]
-            if matches:
-                logging.info("Matching tickers found in a paragraph: " + ",".join(matches))
-                paragraph = {'tickers': matches, 'contentText': p}
-                result.append(paragraph)
+    paragraphs = re.split("(<p.*?>.*?</p>)", article['content'], flags=re.DOTALL)
+    logging.info("{0} preliminary paragraphs generated: {1}".format(str(len(paragraphs)), ",".join(paragraphs)))
+    # Remove empty entries from the paragraphs
+    logging.info("Removing empty entry from paragraphs")
+    paragraphs = list(filter(None, paragraphs))
+    # Remove invalid entries from the paragraphs e.g '\n'
+    remove_invalid_entries(paragraphs)
+    result = []
+    tickers = article['tickers']
+    # Iterate through the paragraphs and determine which tickers appear in a paragraph. If none appear, discard the
+    # paragraph.
+    for p in paragraphs:
+        matches = [ticker for ticker in tickers if ticker in p]
+        if matches:
+            logging.info("Matching tickers found in a paragraph: " + ",".join(matches))
+            logging.info("Appending paragraph " + p)
+            paragraph = {'tickers': matches, 'contentText': p}
+            result.append(paragraph)
 
-        if result:
-            logging.info(
-                "Creating paragraphs for item with ID {0}: {1}".format(str(article['wordpressId']),
-                                                                       " ".join(str(x) for x in result)))
-            article['paragraphs'] = result
-            return json.dumps(article)
-        logging.info("No paragraphs created for item with ID " + str(article['wordpressId']))
+    if result:
+        logging.info(
+            "Creating paragraphs for item with ID {0}: {1}".format(str(article['wordpressId']),
+                                                                   " ".join(str(x) for x in result)))
+        article['paragraphs'] = result
         return json.dumps(article)
+    logging.info("No paragraphs created for item with ID " + str(article['wordpressId']))
+    return json.dumps(article)
 
 
 def remove_invalid_entries(items):
