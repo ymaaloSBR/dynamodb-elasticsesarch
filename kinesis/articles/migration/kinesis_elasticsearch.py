@@ -7,7 +7,7 @@ from elasticsearch import Elasticsearch
 FORMAT = '%(levelname)s - %(message)s'
 logging.basicConfig(format=FORMAT)
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 # Load the service resources in the desired region.
 # Note: AWS credentials should be passed as environment variables
@@ -29,6 +29,8 @@ response = None
 es = Elasticsearch(
         ['13.58.174.196:9200'],
     )
+count = 0
+limit = -1
 while True:
     if not response:
         # Scan from the start.
@@ -49,16 +51,20 @@ while True:
         # for Amazon ES.
         record = {"Keys": ddb_keys, "NewImage": ddb_data, "SourceTable": ddb_table_name}
         # Convert the record to JSON.
-        record = json.dumps(record)
-        logging.info("Record being pushed to kinesis: " + record)
-        if not es.exists(index='articles', doc_type='articles', id=str(json.loads(record)['Keys']['wordpressId']['N'])):
+        if ('tickers' in record['NewImage']) and record['NewImage']['tickers']['L']:
+            record = json.dumps(record)
+            logging.info("Record being pushed to kinesis: " + record)
+            # if not es.exists(index='articles', doc_type='articles', id=str(json.loads(record)['Keys']['wordpressId']['N'])):
             logging.info("Record being pushed to kinesis: " + record)
             # Push the record to Amazon Kinesis.
             res = kinesis.put_record(
                 StreamName=ks_stream_name,
                 Data=record,
                 PartitionKey=str(i["wordpressId"]))
-            logging.info("Response from pushing the record to Kinesis: " + res)
+            count += 1
+            if count == limit:
+                quit()
+            logging.info("Response from pushing the record to Kinesis: " + str(res))
 
     # Stop the loop if no additional records are
     # available.
